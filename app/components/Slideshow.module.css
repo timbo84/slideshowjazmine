@@ -1,0 +1,457 @@
+/* ── Landing ─────────────────────────────────────────────────────────────── */
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)),
+              url('/background.png') center/cover no-repeat;
+  color: #fff;
+}
+
+.landingContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 2.5rem;
+  text-align: center;
+  max-width: 700px;
+}
+
+.arcWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.arcSvg {
+  width: 520px;
+  height: 230px;
+  overflow: visible;
+  margin-bottom: -2rem;
+  pointer-events: none;
+}
+
+.arcText {
+  fill: url(#arcGrad);
+  font-size: 38px;
+  font-weight: 800;
+  font-family: inherit;
+  letter-spacing: 1.5px;
+}
+
+/* Screen-reader only title (the SVG text isn't read by all screen readers) */
+.titleSr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.cap {
+  margin-top: -5.5rem;
+  font-size: 9rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 32px rgba(245, 175, 25, 0.5));
+}
+
+.title {
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 800;
+  background: linear-gradient(135deg, #f5af19 0%, #006633 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 1.15rem;
+  color: #888;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.badge {
+  font-size: 1rem;
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1.4rem;
+  border-radius: 99px;
+}
+
+.badgeWarn {
+  color: #f5b942;
+  border-color: rgba(245, 175, 25, 0.3);
+  background: rgba(245, 175, 25, 0.07);
+}
+
+.startBtn {
+  margin-top: 0.5rem;
+  padding: 1.1rem 3.5rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #f5af19, #006633);
+  border: none;
+  border-radius: 99px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 24px rgba(0, 102, 51, 0.4);
+}
+
+.startBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 36px rgba(0, 102, 51, 0.6);
+}
+
+.startBtn:active:not(:disabled) { transform: translateY(0); }
+
+.startBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: #555;
+  letter-spacing: 0.05em;
+}
+
+/* ── Mobile responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .landingContent {
+    gap: 1.1rem;
+    padding: 1.5rem 1rem;
+    max-width: 100vw;
+  }
+
+  .arcSvg {
+    width: min(340px, 92vw);
+    height: auto;
+  }
+
+  .cap {
+    font-size: clamp(4rem, 20vw, 9rem);
+    margin-top: -3.5rem;
+  }
+
+  .arcText {
+    font-size: clamp(20px, 5.5vw, 38px);
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    letter-spacing: 0.2em;
+  }
+
+  .badge {
+    font-size: 0.82rem;
+    padding: 0.4rem 1rem;
+  }
+
+  .startBtn {
+    padding: 0.9rem 2.2rem;
+    font-size: 1.1rem;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  /* Slideshow controls on mobile */
+  .controlRow {
+    gap: 0.25rem;
+  }
+
+  .counter {
+    font-size: 0.75rem;
+    min-width: 44px;
+  }
+
+  .iconBtn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .playBtn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .dateOverlay {
+    font-size: 0.8rem;
+    bottom: 70px;
+    right: 0.75rem;
+  }
+
+  .nowPlaying {
+    font-size: 0.7rem;
+    bottom: 70px;
+    left: 0.75rem;
+    max-width: 45vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ── Slideshow container ─────────────────────────────────────────────────── */
+
+.slideshow {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+.cursorDefault { cursor: default; }
+.cursorNone    { cursor: none; }
+
+.preload {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Ghost (crossfade out) ───────────────────────────────────────────────── */
+
+.ghost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  z-index: 1;
+  animation: ghostOut 0.65s ease-out forwards;
+}
+
+@keyframes ghostOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* ── Active slide: entrance wrapper + Ken Burns image ────────────────────── */
+
+/* Wrapper handles the entrance transition (slide/fade in) */
+.slideWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* Entrance transition keyframes */
+@keyframes tFade     { from { opacity: 0; }                          to { opacity: 1; } }
+@keyframes tFromRight{ from { opacity: 0; transform: translateX(70px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tFromLeft { from { opacity: 0; transform: translateX(-70px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tFromBottom{ from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tFromTop  { from { opacity: 0; transform: translateY(-60px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tZoomIn   { from { opacity: 0; transform: scale(1.14); }  to { opacity: 1; transform: scale(1); } }
+@keyframes tZoomOut  { from { opacity: 0; transform: scale(0.88); }  to { opacity: 1; transform: scale(1); } }
+
+.t0 { animation: tFade      0.65s ease-out both; }
+.t1 { animation: tFromRight 0.55s ease-out both; }
+.t2 { animation: tFromLeft  0.55s ease-out both; }
+.t3 { animation: tFromBottom 0.55s ease-out both; }
+.t4 { animation: tFromTop   0.55s ease-out both; }
+.t5 { animation: tZoomIn    0.65s ease-out both; }
+.t6 { animation: tZoomOut   0.65s ease-out both; }
+
+/* Image inside wrapper — handles Ken Burns motion during display */
+.slide {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  /* animationDuration is set via inline style to match SLIDE_INTERVAL_MS */
+}
+
+/* Ken Burns keyframes */
+@keyframes kb0 { from { transform: scale(1);    } to { transform: scale(1.08); } }
+@keyframes kb1 { from { transform: scale(1.08); } to { transform: scale(1);    } }
+@keyframes kb2 { from { transform: scale(1.05) translateX(-2%); } to { transform: scale(1.05) translateX(2%);  } }
+@keyframes kb3 { from { transform: scale(1.05) translateX(2%);  } to { transform: scale(1.05) translateX(-2%); } }
+@keyframes kb4 { from { transform: scale(1.05) translateY(-2%); } to { transform: scale(1.05) translateY(2%);  } }
+@keyframes kb5 { from { transform: scale(1.05) translateY(2%);  } to { transform: scale(1.05) translateY(-2%); } }
+
+.kb0 { animation: kb0 linear forwards; }
+.kb1 { animation: kb1 linear forwards; }
+.kb2 { animation: kb2 linear forwards; }
+.kb3 { animation: kb3 linear forwards; }
+.kb4 { animation: kb4 linear forwards; }
+.kb5 { animation: kb5 linear forwards; }
+
+/* ── UI overlays (shared show/hide) ─────────────────────────────────────── */
+
+.uiVisible {
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+.uiHidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+/* ── Date overlay ────────────────────────────────────────────────────────── */
+
+.dateOverlay {
+  position: absolute;
+  bottom: 80px;
+  right: 1.5rem;
+  z-index: 5;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9), 0 0 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  animation: dateIn 0.5s ease-out both;
+}
+
+@keyframes dateIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Now playing ─────────────────────────────────────────────────────────── */
+
+.nowPlaying {
+  position: absolute;
+  bottom: 100px;
+  left: 1.5rem;
+  z-index: 5;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* ── Controls overlay ────────────────────────────────────────────────────── */
+
+.controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 1.25rem 1.5rem 1.75rem;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.8) 50%);
+}
+
+.slideshow:fullscreen .controls,
+.slideshow:fullscreen .dateOverlay,
+.slideshow:fullscreen .nowPlaying {
+  position: absolute;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+
+.progressTrack {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progressBar {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #f5af19, #f12711);
+  border-radius: 2px;
+  animation: progressFill linear forwards;
+}
+
+.progressBarPaused {
+  height: 100%;
+  background: linear-gradient(90deg, #f5af19, #f12711);
+  border-radius: 2px;
+  animation: progressFill linear forwards;
+  animation-play-state: paused;
+}
+
+@keyframes progressFill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* ── Control row ─────────────────────────────────────────────────────────── */
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.counter {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.85rem;
+  min-width: 64px;
+  font-variant-numeric: tabular-nums;
+}
+
+.navBtns  { display: flex; align-items: center; gap: 0.5rem; }
+
+.extraBtns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 64px;
+  justify-content: flex-end;
+}
+
+.iconBtn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  backdrop-filter: blur(8px);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.iconBtn:hover { background: rgba(255, 255, 255, 0.28); }
+
+.playBtn {
+  width: 50px;
+  height: 50px;
+  font-size: 1rem;
+  background: rgba(245, 175, 25, 0.22);
+}
+
+.playBtn:hover { background: rgba(245, 175, 25, 0.42); }
+
+.iconBtnActive {
+  color: #f5af19;
+  background: rgba(245, 175, 25, 0.2);
+}
+
+.iconBtnActive:hover { background: rgba(245, 175, 25, 0.38); }
