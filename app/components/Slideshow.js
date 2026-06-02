@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import styles from './Slideshow.module.css'
 
 const SLIDE_INTERVAL_MS = 4000
@@ -24,6 +24,15 @@ function songName(url) {
   } catch { return '' }
 }
 
+function parseYear(url) {
+  try {
+    const filename = decodeURIComponent(url.split('/').pop().split('?')[0])
+    if (/^dsc/i.test(filename)) return '2009'
+    const m = filename.match(/(19\d{2}|20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/)
+    return m ? m[1] : null
+  } catch { return null }
+}
+
 function parseDate(url) {
   try {
     const filename = decodeURIComponent(url.split('/').pop().split('?')[0])
@@ -37,9 +46,12 @@ function parseDate(url) {
   } catch { return null }
 }
 
+const RESUME_KEY = 'gradparty_resume_idx'
+
 export default function Slideshow({ images, songs = [], configError }) {
   const [started, setStarted] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
+  const [savedIdx, setSavedIdx] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [looping, setLooping] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -48,11 +60,33 @@ export default function Slideshow({ images, songs = [], configError }) {
   const [ghost, setGhost] = useState(null)
   const [songIndex, setSongIndex] = useState(0)
   const [playlist, setPlaylist] = useState([])
+  const [isScrubbing, setIsScrubbing] = useState(false)
+  const [scrubYear, setScrubYear] = useState(null)
 
   const containerRef = useRef(null)
   const hideTimer = useRef(null)
   const audioRef = useRef(null)
+  const scrubberRef = useRef(null)
+  const wakeLockRef = useRef(null)
   const transitionRef = useRef(0)
+
+  // Year tick marks for the timeline scrubber
+  const yearMarkers = useMemo(() => {
+    const markers = []
+    let lastYear = null
+    let lastLabelPct = -Infinity
+    images.forEach((url, idx) => {
+      const year = parseYear(url)
+      if (year && year !== lastYear) {
+        const pct = (idx / Math.max(images.length - 1, 1)) * 100
+        const showLabel = pct - lastLabelPct >= 5
+        if (showLabel) lastLabelPct = pct
+        markers.push({ year, idx, pct, showLabel })
+        lastYear = year
+      }
+    })
+    return markers
+  }, [images])
   const kbRef = useRef(0)
   // Refs so navigate callback doesn't need state as deps
   const activeIdxRef = useRef(0)
@@ -60,6 +94,42 @@ export default function Slideshow({ images, songs = [], configError }) {
 
   useEffect(() => { loopingRef.current = looping }, [looping])
   useEffect(() => { if (songs.length > 0) setPlaylist(shuffle(songs)) }, [songs])
+
+  // Keep screen awake while slideshow is playing (same as video players)
+  useEffect(() => {
+    if (!started || !playing) {
+      wakeLockRef.current?.release().catch(() => {})
+      wakeLockRef.current = null
+      return
+    }
+    navigator.wakeLock?.request('screen')
+      .then(lock => { wakeLockRef.current = lock })
+      .catch(() => {})
+  }, [started, playing])
+
+  // Re-acquire after phone screen wakes back up (lock releases on page hide)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible' && started && playing) {
+        navigator.wakeLock?.request('screen')
+          .then(lock => { wakeLockRef.current = lock })
+          .catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [started, playing])
+
+  // Load saved position on mount
+  useEffect(() => {
+    const saved = parseInt(localStorage.getItem(RESUME_KEY) || '0', 10)
+    if (saved > 0 && saved < images.length) setSavedIdx(saved)
+  }, [images.length])
+
+  // Save position while slideshow is playing
+  useEffect(() => {
+    if (started) localStorage.setItem(RESUME_KEY, activeIdx)
+  }, [activeIdx, started])
 
   const navigate = useCallback((dir) => {
     const cur = activeIdxRef.current
@@ -138,7 +208,64 @@ export default function Slideshow({ images, songs = [], configError }) {
     hideTimer.current = setTimeout(() => setControlsVisible(false), 3000)
   }, [])
 
-  const handleStart = () => {
+  const seekTo = useCallback((idx) => {
+    const cur = activeIdxRef.current
+    if (idx === cur) return
+    let t
+    do { t = Math.floor(Math.random() * TRANSITION_COUNT) } while (t === transitionRef.current)
+    transitionRef.current = t
+    let kb
+    do { kb = Math.floor(Math.random() * KB_COUNT) } while (kb === kbRef.current)
+    kbRef.current = kb
+    setGhost({ src: images[cur], key: Date.now() })
+    activeIdxRef.current = idx
+    setActiveIdx(idx)
+    setSlideKey(k => k + 1)
+  }, [images])
+
+  const getIdxFromX = useCallback((clientX) => {
+    const rect = scrubberRef.current?.getBoundingClientRect()
+    if (!rect) return 0
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    return Math.round(pct * (images.length - 1))
+  }, [images.length])
+
+  const handleScrubStart = useCallback((e) => {
+    e.preventDefault()
+    setIsScrubbing(true)
+    bumpControlsTimer()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const idx = getIdxFromX(clientX)
+    seekTo(idx)
+    setScrubYear(parseYear(images[idx]) ?? '')
+  }, [getIdxFromX, seekTo, images, bumpControlsTimer])
+
+  // Global move/up handlers while scrubbing
+  useEffect(() => {
+    if (!isScrubbing) return
+    const onMove = (e) => {
+      bumpControlsTimer()
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const idx = getIdxFromX(clientX)
+      seekTo(idx)
+      setScrubYear(parseYear(images[idx]) ?? '')
+    }
+    const onEnd = () => { setIsScrubbing(false); setScrubYear(null) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('touchmove', onMove, { passive: true })
+    window.addEventListener('mouseup', onEnd)
+    window.addEventListener('touchend', onEnd)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('mouseup', onEnd)
+      window.removeEventListener('touchend', onEnd)
+    }
+  }, [isScrubbing, getIdxFromX, seekTo, images, bumpControlsTimer])
+
+  const handleStart = (startIdx = 0) => {
+    activeIdxRef.current = startIdx
+    setActiveIdx(startIdx)
     setStarted(true)
     bumpControlsTimer()
     containerRef.current?.requestFullscreen?.().catch?.(() => {})
@@ -173,8 +300,8 @@ export default function Slideshow({ images, songs = [], configError }) {
               <defs>
                 <path id="arc" d="M 10,220 A 240,240 0 0,1 510,220" />
                 <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%"   stopColor="#f5af19" />
-                  <stop offset="100%" stopColor="#006633" />
+                  <stop offset="0%"   stopColor="#006633" />
+                  <stop offset="100%" stopColor="#f5af19" />
                 </linearGradient>
               </defs>
               <text className={styles.arcText}>
@@ -190,11 +317,19 @@ export default function Slideshow({ images, songs = [], configError }) {
           <p className={statusClass}>{statusText}</p>
           <button
             className={styles.startBtn}
-            onClick={handleStart}
+            onClick={() => handleStart(0)}
             disabled={images.length === 0}
           >
             ▶&nbsp;&nbsp;Start Slideshow
           </button>
+          {savedIdx > 0 && (
+            <button
+              className={styles.resumeBtn}
+              onClick={() => handleStart(savedIdx)}
+            >
+              ↩&nbsp;&nbsp;Resume from photo {savedIdx + 1}
+            </button>
+          )}
           <p className={styles.hint}>Fullscreen · Auto-advances · Looping</p>
         </div>
 
@@ -269,12 +404,38 @@ export default function Slideshow({ images, songs = [], configError }) {
 
       {/* Controls */}
       <div className={`${styles.controls} ${showUI}`}>
-        <div className={styles.progressTrack}>
+        {/* Year timeline scrubber */}
+        <div className={styles.scrubArea}>
+          {scrubYear && (
+            <div
+              className={styles.scrubTooltip}
+              style={{ left: `${(activeIdx / Math.max(images.length - 1, 1)) * 100}%` }}
+            >
+              {scrubYear}
+            </div>
+          )}
           <div
-            key={`prog-${slideKey}`}
-            className={playing ? styles.progressBar : styles.progressBarPaused}
-            style={{ animationDuration: `${SLIDE_INTERVAL_MS}ms` }}
-          />
+            ref={scrubberRef}
+            className={styles.scrubber}
+            onMouseDown={handleScrubStart}
+            onTouchStart={handleScrubStart}
+          >
+            <div className={styles.scrubTrack} />
+            <div
+              className={styles.scrubFill}
+              style={{ width: `${(activeIdx / Math.max(images.length - 1, 1)) * 100}%` }}
+            />
+            {yearMarkers.map(({ year, pct, showLabel }) => (
+              <div key={year} className={styles.yearMark} style={{ left: `${pct}%` }}>
+                <div className={styles.yearTick} />
+                {showLabel && <span className={styles.yearLabel}>{year}</span>}
+              </div>
+            ))}
+            <div
+              className={styles.scrubThumb}
+              style={{ left: `${(activeIdx / Math.max(images.length - 1, 1)) * 100}%` }}
+            />
+          </div>
         </div>
         <div className={styles.controlRow}>
           <span className={styles.counter}>{activeIdx + 1}&nbsp;/&nbsp;{images.length}</span>
