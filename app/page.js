@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import Slideshow from '@/app/components/Slideshow'
 
+export const dynamic = 'force-dynamic'
+
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|gif|webp|avif|heic|heif)$/i
 
 function extractDateMs(filename) {
